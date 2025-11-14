@@ -51,9 +51,23 @@ var init = function () {
     var pointsOrigin = [];
     var i;
     var dr = mobile ? 0.3 : 0.1;
-    for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), 210, 13, 0, 0));
-    for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), 150, 9, 0, 0));
-    for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), 90, 5, 0, 0));
+
+    // Compute point sets relative to canvas size so the heart scales on small screens.
+    var baseScale = function () {
+        // smaller divisor -> larger heart; use a larger divisor on mobile for a smaller heart
+        return Math.min(width, height) / (mobile ? 6 : 4);
+    };
+
+    var regeneratePoints = function () {
+        pointsOrigin.length = 0;
+        var s = baseScale();
+        // The multipliers are chosen to reproduce the original proportions (approx 210/13 etc.)
+        for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), s * 1.05, s * 0.065, 0, 0));
+        for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), s * 0.75, s * 0.045, 0, 0));
+        for (i = 0; i < Math.PI * 2; i += dr) pointsOrigin.push(scaleAndTranslate(heartPosition(i), s * 0.45, s * 0.025, 0, 0));
+    };
+
+    regeneratePoints();
     var heartPointsCount = pointsOrigin.length;
 
     var targetPoints = [];
@@ -82,6 +96,21 @@ var init = function () {
         };
         for (var k = 0; k < traceCount; k++) e[i].trace[k] = {x: x, y: y};
     }
+
+    // When the window resizes, regenerate heart points to match the new canvas size
+    // and make sure existing particles have valid target indices.
+    window.addEventListener('resize', function () {
+        try {
+            regeneratePoints();
+            heartPointsCount = pointsOrigin.length;
+            for (var ii = 0; ii < e.length; ii++) {
+                e[ii].q = e[ii].q % heartPointsCount;
+                if (e[ii].q < 0) e[ii].q += heartPointsCount;
+            }
+        } catch (err) {
+            // safe guard: if resize happens before full init, ignore
+        }
+    });
 
     var config = {
         traceK: 0.4,
